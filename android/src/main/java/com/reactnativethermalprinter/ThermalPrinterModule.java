@@ -24,15 +24,26 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.module.annotations.ReactModule;
+import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection;
+
+
+import com.dantsu.escposprinter.connection.usb.UsbConnection;
+import com.dantsu.escposprinter.connection.usb.UsbPrintersConnections;
+import com.dantsu.thermalprinter.async.AsyncBluetoothEscPosPrint;
+import com.dantsu.thermalprinter.async.AsyncEscPosPrinter;
+import com.dantsu.thermalprinter.async.AsyncTcpEscPosPrint;
+import com.dantsu.thermalprinter.async.AsyncUsbEscPosPrint;
+
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.text.TextUtils;
 
-import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection;
 
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
@@ -62,6 +73,53 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
   public String getName() {
     return NAME;
   }
+
+  // usb printing
+
+   /*==============================================================================================
+    ===========================================USB PART=============================================
+    ==============================================================================================*/
+
+    private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
+    private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (MainActivity.ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (this) {
+                    UsbManager usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+                    UsbDevice usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        if (usbManager != null && usbDevice != null) {
+                            // printIt(new UsbConnection(usbManager, usbDevice));
+                            new AsyncUsbEscPosPrint(context)
+                                    .execute(getAsyncEscPosPrinter(new UsbConnection(usbManager, usbDevice)));
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    public void printUsb() {
+        UsbConnection usbConnection = UsbPrintersConnections.selectFirstConnected(this);
+        UsbManager usbManager = (UsbManager) this.getSystemService(Context.USB_SERVICE);
+
+        if (usbConnection == null || usbManager == null) {
+            new AlertDialog.Builder(this)
+                    .setTitle("USB Connection")
+                    .setMessage("No USB printer found.")
+                    .show();
+            return;
+        }
+
+        PendingIntent permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(MainActivity.ACTION_USB_PERMISSION), 0);
+        IntentFilter filter = new IntentFilter(MainActivity.ACTION_USB_PERMISSION);
+        registerReceiver(this.usbReceiver, filter);
+        usbManager.requestPermission(usbConnection.getDevice(), permissionIntent);
+    }
+
+
+  // end of usb printing
 
   @ReactMethod
   public void printTcp(String ipAddress, double port, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double timeout, String encoding, int charsetId, Promise promise) {
