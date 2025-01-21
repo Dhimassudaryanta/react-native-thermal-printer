@@ -34,6 +34,8 @@ describe('React Native Thermal Printer Module', () => {
       printerWidthMM: 55,
       printerNbrCharactersPerLine: 66,
       timeout: 30000,
+      encoding: 'UTF-8',
+      charsetId: 0,
     };
 
     Object.keys(ReactNativeThermalPrinter.defaultConfig).forEach(
